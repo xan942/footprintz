@@ -1,0 +1,12 @@
+# Repo-wide ignores — files the project could produce anywhere.
+# OpenTofu-specific rules (state, plans, .terraform/) live in infra/.gitignore.
+
+# Secrets by convention — never commit, even by accident
+.env
+.env.*
+*.pem
+*.key
+
+# Editor leftovers
+*.swp
+*~

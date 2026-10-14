@@ -1,0 +1,29 @@
+# OpenTofu ignores — patterns are relative to infra/.
+# Repo-wide rules (.env, keys, editor leftovers) live in the root .gitignore.
+
+# State — every resource ID plus the origin secret; encrypted, but still never in git
+*.tfstate
+*.tfstate.*
+
+# Saved plans — `plan -out=tfplan` holds the same values as the state
+tfplan
+*.tfplan
+
+# Provider binaries and module cache — large, per-machine; `tofu init` re-downloads them
+.terraform/
+
+# Variable files — the plan passes secrets as TF_VAR_* env vars; this catches a file made by habit
+*.tfvars
+*.tfvars.json
+
+# Crash logs — can include parts of the state
+crash.log
+crash.*.log
+
+# Local overrides — machine-specific changes to the shared config
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Commit .terraform.lock.hcl — it pins provider versions and checksums (supply chain, OWASP A03)
