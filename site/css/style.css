@@ -18,6 +18,41 @@ a {
   color: #7aa2f7; /* the default purple is hard to read on the dark background */
 }
 
+/* page header: the wordmark, with the treadmill to its right */
+#masthead {
+  display: flex;
+  flex-wrap: wrap;       /* the treadmill drops below the wordmark when there's no room */
+  align-items: center;
+  gap: 16px 40px;
+  margin-bottom: 16px;
+}
+
+#logo,
+#treadmill {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;      /* both are sized to fit, so neither should ever scroll */
+  font-family: inherit;
+  font-size: 14px;
+  font-variant-ligatures: none; /* JetBrains Mono would join == and |= into single symbols */
+  line-height: 1.2;
+  white-space: pre;
+}
+
+#logo {
+  flex: none;            /* keeps its full width; the treadmill takes what's left */
+  color: #7aa2f7;
+  /* 62 = the wordmark's width in font sizes (103 cells at 0.6 each), so it always fits a phone */
+  font-size: min(14px, calc((100vw - 32px) / 62));
+}
+
+#treadmill {
+  flex: 1 1 300px;       /* fills the header out to the right edge of the page */
+  min-width: 0;          /* lets it shrink with the window */
+  color: #7aa2f7;        /* the same colour as the wordmark */
+  font-size: 7px;        /* shorter than the wordmark, with the feet still readable */
+}
+
 /* fastfetch layout: art on the left, text on the right */
 #layout {
   display: flex;
@@ -30,8 +65,10 @@ a {
   margin: 0;
   font-family: inherit;  /* <pre> defaults to the system monospace, not the body's font */
   font-size: 16px;
+  font-variant-ligatures: none; /* JetBrains Mono would join |= and /= into single symbols */
   white-space: pre;      /* the art must never wrap, or the flower falls apart */
   overflow-x: auto;      /* a narrow phone scrolls the art instead of the page */
+  overflow-y: hidden;    /* without this, overflow-x: auto also adds a vertical scrollbar */
   line-height: 1.2;
   max-width: 100%;
 }
@@ -39,6 +76,25 @@ a {
 #report {
   min-width: 0;          /* lets long values wrap instead of widening the page */
   overflow-wrap: anywhere;
+}
+
+#summary {
+  margin-top: 24px;
+  max-width: 90ch;       /* long lines of text are hard to read at full page width */
+}
+
+/* privacy and 404 pages */
+.page {
+  max-width: 90ch;
+}
+
+.page h1 {
+  margin: 24px 0 8px;
+  color: #7aa2f7;
+}
+
+.page h2 {
+  margin-top: 24px;
 }
 
 h2 {

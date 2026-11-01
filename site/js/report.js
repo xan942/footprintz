@@ -246,9 +246,10 @@ function lineRow(item) {
     return row;
 }
 
-// Draws both sections. onPreview(count) runs on every toggle, even if the count stays
-// the same: regrowing the flower each time is deliberate.
-export function renderReport(container, signals, onPreview) {
+// Draws the lines into container, beside the flower, and everything else into below.
+// onPreview(count) runs on every toggle, even if the count stays the same: regrowing
+// the flower each time is deliberate.
+export function renderReport(container, below, signals, onPreview) {
     const lines = buildLines(signals);
     const fixes = buildFixes(signals, lines);
     const rows = {};                   // finds a line's row by its id, for greying out
@@ -268,8 +269,9 @@ export function renderReport(container, signals, onPreview) {
         container.appendChild(row);
     }
 
-    container.appendChild(element("p", "closing", closingText(lines)));
-    container.appendChild(element("p", "note",
+    below.textContent = "";            // removes any earlier summary and fixes
+    below.appendChild(element("p", "closing", closingText(lines)));
+    below.appendChild(element("p", "note",
         "This is only what any website can see by itself. Advertisers also combine it with cross-site cookies, data brokers and accounts you're logged in to, which this page can't show."));
 
     // works out which lines are hidden by the ticked fixes, then updates the page and the flower
@@ -286,9 +288,9 @@ export function renderReport(container, signals, onPreview) {
         onPreview(countVisible(lines, previewHidden));
     }
 
-    container.appendChild(element("h2", "", "Shrink your footprint"));
+    below.appendChild(element("h2", "", "Shrink your footprint"));
     if (fixes.length === 0) {
-        container.appendChild(element("p", "", "There's nothing to fix on this list."));
+        below.appendChild(element("p", "", "There's nothing to fix on this list."));
     }
     for (const fix of fixes) {
         const block = element("div", "fix", "");
@@ -311,7 +313,7 @@ export function renderReport(container, signals, onPreview) {
             label.appendChild(document.createTextNode(" preview this fix"));
             block.appendChild(label);
         }
-        container.appendChild(block);
+        below.appendChild(block);
     }
 
     return countVisible(lines, new Set());

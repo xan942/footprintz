@@ -6,6 +6,7 @@ import { genomeSeed, growthSeed } from "./seed.js";
 import { makeTraits, growPlant } from "./art.js";
 import { createAsciiView } from "./ascii.js";
 import { renderReport } from "./report.js";
+import { startTreadmill } from "./treadmill.js";
 
 const TICK_MS = 30;          // time between animation steps
 const WRITES_PER_TICK = 3;   // cells drawn each step
@@ -13,6 +14,7 @@ const HOLD_TICKS = 150;      // finished flower stays for 150 ticks (about 4.5 s
 
 const button = document.getElementById("generate");
 const reportBox = document.getElementById("report");
+const summaryBox = document.getElementById("summary");
 const artBox = document.getElementById("art");
 
 const view = createAsciiView(artBox);
@@ -65,10 +67,13 @@ function showFlower(traits, visibleLines) {
     }
 }
 
+startTreadmill(document.getElementById("treadmill"));
+
 // Signals are collected only after the visitor clicks Generate (consent rule)
 button.addEventListener("click", async function () {
     button.disabled = true; // stops a second click while the first one is still collecting
     reportBox.textContent = "collecting...";
+    summaryBox.textContent = "";
     clearInterval(loopTimer); // stops the previous flower, if there is one
 
     try {
@@ -78,7 +83,7 @@ button.addEventListener("click", async function () {
         reducedMotion = signals.appearance.value.reducedMotion;
 
         // a preview toggle regrows the same plant type at the new size
-        const visibleLines = renderReport(reportBox, signals, function (previewCount) {
+        const visibleLines = renderReport(reportBox, summaryBox, signals, function (previewCount) {
             showFlower(traits, previewCount);
         });
 
