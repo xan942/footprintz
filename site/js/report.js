@@ -152,7 +152,7 @@ function closingText(lines) {
 const FIXES = {
     resistFingerprinting: {
         title: "Turn on resistFingerprinting",
-        how: "In Firefox-based browsers, set privacy.resistFingerprinting to true in about:config. LibreWolf has it on already. Some sites will break, and your timezone will read as UTC.",
+        how: "In Firefox-based browsers, set privacy.resistFingerprinting to true in about:config. LibreWolf has it on already. Some sites will break, and your timezone will read as Iceland's (UTC+0).",
         hides: ["timezone", "screen", "cores", "gpu", "appearance", "canvas"]
     },
     torBrowser: {

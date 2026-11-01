@@ -42,7 +42,6 @@ function canonicalise(signals) {
 // ── Seeds ────────────────────────────────────────────────────────────────
 
 // Genome seed: SHA-256 of the canonical text, cut down to its first four 32-bit numbers.
-// Takes a signals object, so the Tor preview can pass in its fixed profile the same way.
 export async function genomeSeed(signals) {
     const bytes = new TextEncoder().encode(canonicalise(signals));   // string -> UTF-8 bytes
     const digest = await crypto.subtle.digest("SHA-256", bytes);     // 32 bytes (256 bits)

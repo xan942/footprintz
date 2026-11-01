@@ -118,12 +118,9 @@ function readBrowser(ua) {
 // ── Timezone and language ────────────────────────────────────────────────
 
 // Timezones that privacy browsers report instead of the real one.
-// Firefox's resistFingerprinting (LibreWolf, Tor) uses UTC — Atlantic/Reykjavik is listed
-// in case newer versions switched to it (to verify in LibreWolf).
+// LibreWolf with resistFingerprinting reports Atlantic/Reykjavik (checked 2026-11-01), which is
+// also a real timezone. It has to stay, so the clues say "may" for people really in Iceland.
 const SPOOF_TIMEZONES = ["UTC", "Etc/UTC", "Etc/GMT", "Atlantic/Reykjavik"];
-// Atlantic/Reykjavik is also a real timezone, so people in Iceland get a false "looks spoofed".
-// If LibreWolf reports UTC with resistFingerprinting on, swap to this list (see BACKLOG):
-// const SPOOF_TIMEZONES = ["UTC", "Etc/UTC", "Etc/GMT"];
 
 function readTimezone() {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone; // IANA name, e.g. "America/Los_Angeles"
@@ -133,7 +130,7 @@ function readTimezone() {
     }
     if (SPOOF_TIMEZONES.includes(zone)) {
         return signal(zone, "spoofed",
-            "UTC-style zones are what privacy browsers report; few people actually live on UTC.");
+            "Privacy browsers report this zone instead of the real one, though it may be genuine if you're in Iceland or on UTC.");
     }
     return signal(zone, "visible", null);
 }
@@ -313,9 +310,9 @@ async function readAdBlocker() {
 
 // ── Canvas fingerprint ───────────────────────────────────────────────────
 
-// LibreWolf and Tor Browser run Firefox's resistFingerprinting, which forces a UTC
+// LibreWolf and Tor Browser run Firefox's resistFingerprinting, which forces a UTC+0
 // timezone and shows a permission prompt when a site reads a canvas.
-// Firefox + a UTC-style zone is our tell. A real Firefox user in UTC also matches —
+// Firefox + one of those zones is our tell. A real Firefox user in UTC or Iceland also matches —
 // they lose the canvas line and get a "looks spoofed" tag, which is the safe direction.
 function looksLikeResistFingerprinting(browser, timezone) {
     if (browser === "Firefox" && SPOOF_TIMEZONES.includes(timezone)) {
@@ -330,7 +327,7 @@ function looksLikeResistFingerprinting(browser, timezone) {
 async function readCanvas(resistFingerprinting) {
     if (resistFingerprinting) {
         return signal(null, "hidden",
-            "This browser asks before letting a site read a canvas, so we skip it instead of triggering the prompt.");
+            "This browser looks like one that asks before letting a site read a canvas, so we skip it to avoid the prompt.");
     }
 
     const canvas = document.createElement("canvas");
