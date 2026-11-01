@@ -1,0 +1,87 @@
+/* Self-hosted font: keeps the CSP at 'self' (no Google Fonts request) */
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-display: swap; /* show fallback text at once, swap in the font when it loads */
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: #1a1b26;
+  color: #c0caf5;
+  /* fallback "monospace" keeps the art aligned when web fonts are blocked (Tor Safer level) */
+  font-family: "JetBrains Mono", monospace;
+}
+
+a {
+  color: #7aa2f7; /* the default purple is hard to read on the dark background */
+}
+
+/* fastfetch layout: art on the left, text on the right */
+#layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+#art {
+  flex: none;            /* keeps its full width beside the report */
+  margin: 0;
+  font-family: inherit;  /* <pre> defaults to the system monospace, not the body's font */
+  font-size: 16px;
+  white-space: pre;      /* the art must never wrap, or the flower falls apart */
+  overflow-x: auto;      /* a narrow phone scrolls the art instead of the page */
+  line-height: 1.2;
+  max-width: 100%;
+}
+
+#report {
+  min-width: 0;          /* lets long values wrap instead of widening the page */
+  overflow-wrap: anywhere;
+}
+
+h2 {
+  margin: 0 0 8px;
+  color: #7aa2f7;
+}
+
+h3 {
+  margin: 16px 0 4px;
+  font-size: 1em;
+  color: #e0af68;
+}
+
+.line {
+  margin: 2px 0;
+}
+
+.label {
+  color: #7dcfff;
+}
+
+.tag-hidden,
+.tag-spoofed {
+  color: #e0af68;
+}
+
+.clue,
+.note {
+  color: #a9b1d6;
+}
+
+.previewed {
+  opacity: 0.4;          /* what a previewed fix would hide */
+  text-decoration: line-through;
+}
+
+.closing {
+  margin: 16px 0 8px;
+}
+
+/* below ~900px, the art stacks above the text: the art alone is about 460px wide */
+@media (max-width: 900px) {
+  #layout {
+    flex-direction: column;
+  }
+}
