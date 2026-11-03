@@ -93,16 +93,74 @@ function languagesText(value) {
     return value.join(", ");
 }
 
-// The fixed list of 11 lines, in page order
+// "en-US, 12-hour clock, 1,234.5"
+function formatsText(value) {
+    let text = value.locale;
+    if (value.clock !== null) {
+        text += ", " + value.clock + " clock";
+    }
+    text += ", " + value.number;
+    return text;
+}
+
+// "38 installed, e.g. Google US English, Google UK English Female, ..."
+function voicesText(value) {
+    if (value === null) {
+        return "";
+    }
+    const examples = value.slice(0, 3);          // the first three names are enough to show the idea
+    let text = value.length + " installed, e.g. " + examples.join(", ");
+    if (value.length > 3) {
+        text += ", ...";
+    }
+    return text;
+}
+
+// "24-bit, sRGB, no HDR"
+function colourText(value) {
+    let text = value.depth + "-bit, " + value.gamut;
+    if (value.hdr) {
+        text += ", HDR";
+    } else {
+        text += ", no HDR";
+    }
+    return text;
+}
+
+// "mouse or trackpad", "touchscreen (5 touch points)", or both
+function pointerText(value) {
+    const parts = [];
+    if (value.fine) {
+        parts.push("mouse or trackpad");
+    }
+    if (value.touchPoints > 0 || value.coarse) {
+        parts.push("touchscreen (" + value.touchPoints + " touch points)");
+    }
+    if (parts.length === 0) {
+        return "no pointer reported";
+    }
+    return parts.join(" and ");
+}
+
+// The fixed list of 16 lines, in page order. Lines are grouped by observer, so a new
+// line goes inside its group, not at the end.
 export function buildLines(signals) {
     return [
         osBrowserLine(signals.os, signals.browser),
         line("timezone", "Timezone", "Any site", signals.timezone,
             signals.timezone.value, "roughly where you are"),
+        line("formats", "Date + number format", "Any site", signals.formats,
+            formatsText(signals.formats.value), "how your region writes times and numbers"),
         line("languages", "Languages", "Any site", signals.languages,
             languagesText(signals.languages.value), "the languages you read"),
+        line("speechVoices", "Speech voices", "Any site", signals.speechVoices,
+            voicesText(signals.speechVoices.value), "the voices installed on your system"),
         line("screen", "Screen", "Any site", signals.screen,
             screenText(signals.screen.value), "your screen"),
+        line("colour", "Colour", "Any site", signals.colour,
+            colourText(signals.colour.value), "your display's colour range"),
+        line("pointer", "Pointer", "Any site", signals.pointer,
+            pointerText(signals.pointer.value), "whether you use touch or a mouse"),
         line("cores", "CPU cores", "Any site", signals.cores,
             signals.cores.value, "your processor"),
         line("gpu", "GPU", "Any site", signals.gpu,
@@ -115,6 +173,8 @@ export function buildLines(signals) {
             adBlockerText(signals.adBlocker.value), "whether you block ads"),
         line("canvas", "Canvas fingerprint", "Advertisers", signals.canvas,
             signals.canvas.value, "a drawing test that helps tell this device from others"),
+        line("audio", "Audio fingerprint", "Advertisers", signals.audio,
+            signals.audio.value, "a sound test that does the same"),
         line("webrtc", "WebRTC local address", "Attackers and bots", signals.webrtc,
             webRtcText(signals.webrtc.value), "your local network address")
     ];
@@ -153,12 +213,17 @@ const FIXES = {
     resistFingerprinting: {
         title: "Turn on resistFingerprinting",
         how: "In Firefox-based browsers, set privacy.resistFingerprinting to true in about:config. LibreWolf has it on already. Some sites will break, and your timezone will read as Iceland's (UTC+0).",
-        hides: ["timezone", "screen", "cores", "gpu", "appearance", "canvas"]
+        hides: ["timezone", "formats", "screen", "colour", "pointer", "cores", "gpu", "appearance", "canvas"]
     },
     torBrowser: {
         title: "Use Tor Browser for private browsing",
-        how: "Your OS and browser family can't be fully hidden, but Tor Browser makes you look like every other Tor user, and it also hides your IP address.",
-        hides: ["timezone", "screen", "cores", "gpu", "appearance", "canvas"]
+        how: "Your OS and browser family can't be fully hidden, but Tor Browser makes you look like every other Tor user, turns off speech voices, and also hides your IP address.",
+        hides: ["timezone", "formats", "speechVoices", "screen", "colour", "pointer", "cores", "gpu", "appearance", "canvas"]
+    },
+    audioNoise: {
+        title: "Use a browser that adds noise to audio reads",
+        how: "Brave changes the audio test's result slightly for each site and session, so the fingerprint can't link your visits together.",
+        hides: ["audio"]
     },
     globalPrivacyControl: {
         title: "Turn on Global Privacy Control",
@@ -181,12 +246,17 @@ const FIXES = {
 const FIX_FOR_LINE = {
     osBrowser: "torBrowser",
     languages: "torBrowser",
+    speechVoices: "torBrowser",
     timezone: "resistFingerprinting",
+    formats: "resistFingerprinting",
     screen: "resistFingerprinting",
+    colour: "resistFingerprinting",
+    pointer: "resistFingerprinting",
     cores: "resistFingerprinting",
     gpu: "resistFingerprinting",
     appearance: "resistFingerprinting",
     canvas: "resistFingerprinting",
+    audio: "audioNoise",
     webrtc: "webrtc"
 };
 

@@ -18,6 +18,37 @@ a {
   color: #7aa2f7; /* the default purple is hard to read on the dark background */
 }
 
+/* Generate: buttons don't inherit the page font, so it's set here explicitly */
+button {
+  font: inherit;               /* same family and size as the page, not the browser's default */
+  color: #7aa2f7;              /* the link and wordmark colour */
+  background: #24283b;         /* a step lighter than the page, so it reads as a control */
+  border: 1px solid #7aa2f7;
+  border-radius: 4px;
+  padding: 2px 12px;
+  cursor: pointer;             /* the hand cursor, like a link */
+}
+
+button:hover {
+  background: #2f354f;         /* a little lighter on hover */
+}
+
+button:focus-visible {
+  outline: 2px solid #7dcfff;  /* keyboard focus ring; focus-visible skips it on mouse clicks */
+  outline-offset: 2px;
+}
+
+button:disabled {
+  opacity: 0.5;                /* greyed out while the signals are being collected */
+  cursor: wait;
+}
+
+/* one centred column: every section shares its left and right edges */
+main {
+  max-width: 1200px;     /* wide enough for the art plus a ~70-character report column */
+  margin: 0 auto;        /* auto side margins centre the column in the window */
+}
+
 /* page header: the wordmark, with the treadmill to its right */
 #masthead {
   display: flex;
@@ -42,8 +73,8 @@ a {
 #logo {
   flex: none;            /* keeps its full width; the treadmill takes what's left */
   color: #7aa2f7;
-  /* 62 = the wordmark's width in font sizes (103 cells at 0.6 each), so it always fits a phone */
-  font-size: min(14px, calc((100vw - 32px) / 62));
+  /* 55 = the wordmark's width in font sizes (91 cells at 0.6 each), so it always fits a phone */
+  font-size: min(14px, calc((100vw - 32px) / 55));
 }
 
 #treadmill {
@@ -74,13 +105,13 @@ a {
 }
 
 #report {
+  flex: 1;               /* fills the rest of the row, so its right edge is the column's */
   min-width: 0;          /* lets long values wrap instead of widening the page */
   overflow-wrap: anywhere;
 }
 
 #summary {
-  margin-top: 24px;
-  max-width: 90ch;       /* long lines of text are hard to read at full page width */
+  margin-top: 24px;      /* no max-width: it spans the column, so its right edge matches the report's */
 }
 
 /* privacy and 404 pages */

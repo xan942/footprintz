@@ -2,6 +2,7 @@
 // and the "What they can see" report (report.js).
 // Runs only when the visitor clicks Generate. Nothing is sent anywhere: the only
 // requests are the ad-blocker check's two empty files, from our own site.
+// No reader here may trigger a permission prompt.
 //
 // Every signal comes back in the same shape:
 //   { value, state, clue }
@@ -424,18 +425,185 @@ async function readWebRtc() {
     return signal(addresses, "visible", null);
 }
 
+// ── Date and number formats ──────────────────────────────────────────────
+
+// How the browser writes times and numbers. These follow the visitor's region settings,
+// so they can show a region even when the language list says only "en-US".
+function readFormats(resistFingerprinting) {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;   // e.g. "en-US", "en-GB"
+
+    // hourCycle: "h11"/"h12" = 12-hour clock, "h23"/"h24" = 24-hour clock
+    const hourCycle = new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions().hourCycle;
+    let clock = null;                                // stays null if the browser doesn't say
+    if (hourCycle === "h11" || hourCycle === "h12") {
+        clock = "12-hour";
+    } else if (hourCycle === "h23" || hourCycle === "h24") {
+        clock = "24-hour";
+    }
+
+    const number = (1234.5).toLocaleString();        // "1,234.5" in the US, "1.234,5" in Germany
+
+    const value = { locale: locale, clock: clock, number: number };
+    if (resistFingerprinting) {
+        return signal(value, "spoofed", "This browser looks like it reports the standard US formats, not yours.");
+    }
+    return signal(value, "visible", null);
+}
+
+// ── Speech voices ────────────────────────────────────────────────────────
+
+// Chromium fills the voice list a moment after the page asks, and announces it with a
+// "voiceschanged" event. Firefox has it ready at once. Waits up to ms milliseconds.
+function waitForVoices(ms) {
+    return new Promise(function (resolve) {
+        const first = speechSynthesis.getVoices();
+        if (first.length > 0) {
+            resolve(first);                          // already there: no need to wait
+            return;
+        }
+        const timer = setTimeout(function () {
+            resolve(speechSynthesis.getVoices());    // whatever is there when time runs out
+        }, ms);
+        speechSynthesis.addEventListener("voiceschanged", function () {
+            clearTimeout(timer);
+            resolve(speechSynthesis.getVoices());
+        }, { once: true });                          // once: the listener removes itself after firing
+    });
+}
+
+// The text-to-speech voices installed on the system. The list depends on the OS and the
+// language packs installed, so it says a lot about the machine. Nothing is spoken.
+async function readSpeechVoices() {
+    if (typeof speechSynthesis === "undefined") {
+        return signal(null, "hidden", "Speech synthesis is turned off.");  // Tor Browser turns it off
+    }
+
+    const voices = await waitForVoices(1000);
+    if (voices.length === 0) {
+        return signal(null, "hidden", "The browser listed no voices.");
+    }
+
+    const names = [];
+    for (const voice of voices) {
+        names.push(voice.name);                      // e.g. "Google US English", "English (America)"
+    }
+    return signal(names, "visible", null);
+}
+
+// ── Display colour and pointer ───────────────────────────────────────────
+
+// Colour depth, colour range (gamut) and HDR support, all read without a prompt
+function readColour(resistFingerprinting) {
+    let gamut = "sRGB";                              // the standard range every screen covers
+    if (window.matchMedia("(color-gamut: rec2020)").matches) {
+        gamut = "Rec. 2020";                         // check the widest first: a Rec. 2020 screen also matches p3
+    } else if (window.matchMedia("(color-gamut: p3)").matches) {
+        gamut = "P3";                                // wide colour, e.g. recent Macs and phones
+    }
+
+    const value = {
+        depth: screen.colorDepth,                    // bits per pixel, usually 24 or 30
+        gamut: gamut,
+        hdr: window.matchMedia("(dynamic-range: high)").matches
+    };
+    if (resistFingerprinting) {
+        return signal(value, "spoofed", "This browser looks like it reports a standard display, not yours.");
+    }
+    return signal(value, "visible", null);
+}
+
+// Touchscreen or mouse. any-pointer checks every input device, not only the main one,
+// so a laptop with a touchscreen reports both.
+function readPointer(resistFingerprinting) {
+    let touchPoints = navigator.maxTouchPoints;      // how many fingers the screen tracks at once
+    if (typeof touchPoints !== "number") {
+        touchPoints = 0;                             // older browsers: treat as no touchscreen
+    }
+
+    const value = {
+        touchPoints: touchPoints,
+        fine: window.matchMedia("(any-pointer: fine)").matches,     // a mouse, trackpad or stylus
+        coarse: window.matchMedia("(any-pointer: coarse)").matches  // a finger
+    };
+    if (resistFingerprinting) {
+        return signal(value, "spoofed", "This browser looks like it reports a standard pointer, not yours.");
+    }
+    return signal(value, "visible", null);
+}
+
+// ── Audio fingerprint ────────────────────────────────────────────────────
+
+// Resolves with "timeout" after ms milliseconds, for racing against a slow promise
+function timeout(ms) {
+    return new Promise(function (resolve) {
+        setTimeout(resolve, ms, "timeout");          // the third argument is passed to resolve
+    });
+}
+
+// Renders a short tone through a compressor without playing it, then hashes the result.
+// Like the canvas test, the numbers differ slightly between machines because of the
+// audio code and the processor's maths. OfflineAudioContext makes no sound and needs no prompt.
+async function readAudio() {
+    const AudioContextType = window.OfflineAudioContext || window.webkitOfflineAudioContext; // webkit: older Safari
+    if (typeof AudioContextType !== "function") {
+        return signal(null, "hidden", "Audio processing is turned off.");
+    }
+
+    let samples = null;
+    try {
+        const context = new AudioContextType(1, 5000, 44100); // 1 channel, 5000 samples, 44,100 per second
+
+        const oscillator = context.createOscillator();        // the tone
+        oscillator.type = "triangle";
+        oscillator.frequency.value = 10000;                   // 10 kHz
+
+        const compressor = context.createDynamicsCompressor(); // squashes loud parts; its maths varies most
+        compressor.threshold.value = -50;                     // starts compressing at -50 dB
+        compressor.knee.value = 40;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0;
+        compressor.release.value = 0.25;
+
+        oscillator.connect(compressor);                       // tone -> compressor -> output
+        compressor.connect(context.destination);
+        oscillator.start(0);
+
+        // a browser that stalls the render shouldn't hold up the whole report
+        const result = await Promise.race([context.startRendering(), timeout(2000)]);
+        if (result === "timeout") {
+            return signal(null, "hidden", "The audio test took too long to finish.");
+        }
+        samples = result.getChannelData(0);                   // the rendered sound, as numbers
+    } catch (error) {
+        return signal(null, "hidden", "Audio processing is blocked in this browser.");
+    }
+
+    let total = 0;
+    for (let i = 4500; i < 5000; i++) {
+        total += Math.abs(samples[i]);                        // the last 500 samples, after the compressor settles
+    }
+    const hash = await sha256Hex(total.toString());
+    const short = hash.slice(0, 16);                          // the same length as the canvas fingerprint
+
+    if (isBrave()) {
+        return signal(short, "spoofed", "Brave adds random noise to audio reads, so this changes every session.");
+    }
+    return signal(short, "visible", null);
+}
+
 // ── Entry point ──────────────────────────────────────────────────────────
 
-// Reads every signal. The quick ones run first; the three slow ones then run at the
-// same time, so the wait is the slowest one (about 1 s) rather than all three added up.
+// Reads every signal. The quick ones run first; the slow ones then run at the same
+// time, so the wait is the slowest one (about 1 s) rather than all of them added up.
 export async function collectSignals() {
     const ua = navigator.userAgent;
     const browser = readBrowser(ua);
     const timezone = readTimezone();
     const rfp = looksLikeResistFingerprinting(browser.value, timezone.value);
 
-    // Promise.all waits for all three, and its results keep this order
-    const slow = await Promise.all([readAdBlocker(), readCanvas(rfp), readWebRtc()]);
+    // Promise.all waits for all five, and its results keep this order
+    const slow = await Promise.all([readAdBlocker(), readCanvas(rfp), readWebRtc(),
+                                    readSpeechVoices(), readAudio()]);
 
     return {
         os: readOs(ua),
@@ -449,6 +617,11 @@ export async function collectSignals() {
         privacySignals: readPrivacySignals(),
         adBlocker: slow[0],
         canvas: slow[1],
-        webrtc: slow[2]
+        webrtc: slow[2],
+        formats: readFormats(rfp),
+        speechVoices: slow[3],
+        colour: readColour(rfp),
+        pointer: readPointer(rfp),
+        audio: slow[4]
     };
 }

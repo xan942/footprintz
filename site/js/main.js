@@ -5,7 +5,7 @@ import { collectSignals } from "./signals.js";
 import { genomeSeed, growthSeed } from "./seed.js";
 import { makeTraits, growPlant } from "./art.js";
 import { createAsciiView } from "./ascii.js";
-import { renderReport } from "./report.js";
+import { renderReport, buildLines } from "./report.js";
 import { startTreadmill } from "./treadmill.js";
 
 const TICK_MS = 30;          // time between animation steps
@@ -20,6 +20,7 @@ const artBox = document.getElementById("art");
 const view = createAsciiView(artBox);
 let loopTimer = null;        // the running loop, so it can be stopped
 let reducedMotion = false;   // the visitor's preference, read on Generate
+let totalLines = 1;         // how many lines the report has; set on Generate
 
 // Draws a whole plant at once
 function drawAll(plant) {
@@ -31,7 +32,7 @@ function drawAll(plant) {
 
 // Grow -> hold -> clear -> regrow from the same genome, forever (like cbonsai -l -i)
 function startLoop(traits, visibleLines) {
-    let plant = growPlant(traits, visibleLines, growthSeed());
+    let plant = growPlant(traits, visibleLines, totalLines, growthSeed());
     let position = 0;        // how many writes have been drawn
     let held = 0;            // how many ticks the finished flower has been held
 
@@ -49,7 +50,7 @@ function startLoop(traits, visibleLines) {
         } else if (held < HOLD_TICKS) {
             held += 1;
         } else {
-            plant = growPlant(traits, visibleLines, growthSeed()); // the old plant is thrown away here
+            plant = growPlant(traits, visibleLines, totalLines, growthSeed()); // the old plant is thrown away here
             position = 0;
             held = 0;
             view.clear();
@@ -61,7 +62,7 @@ function startLoop(traits, visibleLines) {
 function showFlower(traits, visibleLines) {
     clearInterval(loopTimer);
     if (reducedMotion) {
-        drawAll(growPlant(traits, visibleLines, growthSeed())); // one finished flower, no loop
+        drawAll(growPlant(traits, visibleLines, totalLines, growthSeed())); // one finished flower, no loop
     } else {
         startLoop(traits, visibleLines);
     }
@@ -81,6 +82,7 @@ button.addEventListener("click", async function () {
         const genome = await genomeSeed(signals);
         const traits = makeTraits(signals, genome);
         reducedMotion = signals.appearance.value.reducedMotion;
+        totalLines = buildLines(signals).length; // the bloom uses the share of lines visible, not the count
 
         // a preview toggle regrows the same plant type at the new size
         const visibleLines = renderReport(reportBox, summaryBox, signals, function (previewCount) {

@@ -8,7 +8,8 @@
 // The signals that shape the genome, in a fixed order. Order is written out here
 // because the hash must not depend on the order the signals happened to be collected in.
 const GENOME_SIGNALS = ["os", "browser", "timezone", "languages", "screen", "cores",
-                        "gpu", "appearance", "privacySignals", "adBlocker", "canvas", "webrtc"];
+                        "gpu", "appearance", "privacySignals", "adBlocker", "canvas", "webrtc",
+                        "formats", "speechVoices", "colour", "pointer", "audio"];
 
 // One value for each signal. A hidden signal's value is null, so hiding a signal
 // changes the genome, the same as any other change to the footprint.
@@ -24,8 +25,11 @@ function genomeValue(name, reading) {
         }
         return [reading.value.width, reading.value.height]; // no ratio: browser zoom changes it
     }
-    if (name === "webrtc" && reading.value !== null) {
-        return reading.value.slice().sort(); // a sorted copy: addresses can arrive in any order
+    if ((name === "webrtc" || name === "speechVoices") && reading.value !== null) {
+        return reading.value.slice().sort(); // a sorted copy: addresses and voices can arrive in any order
+    }
+    if (name === "audio" && reading.state === "spoofed") {
+        return "spoofed";               // Brave's noise changes every session, so it isn't hashed
     }
     return reading.value;
 }

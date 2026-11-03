@@ -119,9 +119,10 @@ export function makeTraits(signals, genome) {
 
 // ── Growth ───────────────────────────────────────────────────────────────
 
-// Grows one plant. visibleLines (0-11) sets the bloom, as in "Bloom follows the report".
+// Grows one plant. The share of report lines that are visible (visibleLines out of
+// totalLines) sets the bloom, as in "Bloom follows the report".
 // Returns { writes: [{ x, y, glyph, colour }, ...], palette }; a later write replaces an earlier one.
-export function growPlant(traits, visibleLines, seed) {
+export function growPlant(traits, visibleLines, totalLines, seed) {
     const random = makeRandom(seed);
     const writes = [];
 
@@ -144,10 +145,18 @@ export function growPlant(traits, visibleLines, seed) {
     }
     write(middle + 6, rimY + 1, "/", POT);
 
-    // Bloom size follows the visible lines: radius 1 at the fewest, 3 from ten up
-    const radius = 1 + Math.floor(visibleLines / 5);
+    // Bloom size follows the share of visible lines, so adding lines to the report
+    // doesn't make every flower bigger. The cut-offs are the ones the first 11-line
+    // list used: 5 of 11 for radius 2, 10 of 11 for radius 3, under 6 of 11 for faded petals.
+    const share = visibleLines / totalLines;        // 0 (nothing visible) to 1 (everything)
+    let radius = 1;
+    if (share >= 10 / 11) {
+        radius = 3;
+    } else if (share >= 5 / 11) {
+        radius = 2;
+    }
     let petalColour = PETAL;
-    if (visibleLines < 6) {
+    if (share < 6 / 11) {
         petalColour = FADED_PETAL;                  // a small footprint gets a quieter flower
     }
 
