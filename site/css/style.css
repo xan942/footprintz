@@ -95,13 +95,29 @@ main {
   flex: none;            /* keeps its full width beside the report */
   margin: 0;
   font-family: inherit;  /* <pre> defaults to the system monospace, not the body's font */
-  font-size: 16px;
+  /* 16px, or smaller on a narrow phone so the 30em-wide box fits the screen (like #logo) */
+  font-size: min(16px, calc((100vw - 32px) / 30));
   font-variant-ligatures: none; /* JetBrains Mono would join |= and /= into single symbols */
   white-space: pre;      /* the art must never wrap, or the flower falls apart */
-  overflow-x: auto;      /* a narrow phone scrolls the art instead of the page */
+  overflow-x: auto;      /* safety net: a wider fallback font scrolls the art instead of the page */
   overflow-y: hidden;    /* without this, overflow-x: auto also adds a vertical scrollbar */
   line-height: 1.2;
+  /* the pixel view's box in em: 480 x 640 at 16px, and it shrinks with the font on a phone,
+     just as the canvas does, so nothing on the page moves on a view switch.
+     The art itself is 28.8em x 38.4em (48 cells x 0.6em, 32 lines x 1.2em) */
+  width: 30em;
+  height: 40em;
   max-width: 100%;
+}
+
+/* pixel view: the canvas is only 48 x 64, so CSS blows it up 10 times.
+   No display rule here: one would override the hidden attribute the toggle uses. */
+#pixels {
+  flex: none;                 /* keeps its full width beside the report, like #art */
+  width: 480px;               /* 10 x 48; the height follows the canvas's shape (640px) */
+  height: auto;               /* keeps the 3:4 shape when max-width shrinks it */
+  max-width: 100%;            /* a narrow phone shrinks the flower instead of scrolling */
+  image-rendering: pixelated; /* enlarge by repeating pixels, not blurring between them */
 }
 
 #report {

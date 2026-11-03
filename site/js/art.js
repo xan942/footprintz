@@ -8,13 +8,14 @@ import { makeRandom } from "./seed.js";
 export const WIDTH = 48;   // cells across
 export const HEIGHT = 32;  // cells down
 
-// Colour slots: each palette below lists its colours in this order
-const STEM = 0;
-const LEAF = 1;
-const PETAL = 2;
-const CENTRE = 3;
-const POT = 4;
-const FADED_PETAL = 5;
+// Colour slots: each palette below lists its colours in this order.
+// Exported because pixel.js also uses a cell's slot to tell its role (a leaf "*" vs a petal "*").
+export const STEM = 0;
+export const LEAF = 1;
+export const PETAL = 2;
+export const CENTRE = 3;
+export const POT = 4;
+export const FADED_PETAL = 5;
 
 // ── Trait tables (draft: the final mapping goes in the wiki) ─────────────
 
