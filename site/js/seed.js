@@ -28,9 +28,8 @@ function genomeValue(name, reading) {
     if ((name === "webrtc" || name === "speechVoices") && reading.value !== null) {
         return reading.value.slice().sort(); // a sorted copy: addresses and voices can arrive in any order
     }
-    if (name === "audio" && reading.state === "spoofed") {
-        return "spoofed";               // Brave's noise changes every session, so it isn't hashed
-    }
+    // Brave's noisy canvas, audio and core count are hashed as read, on purpose:
+    // its flower changes every session, which shows its protection at work.
     return reading.value;
 }
 

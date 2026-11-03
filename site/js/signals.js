@@ -363,6 +363,12 @@ async function readCanvas(resistFingerprinting) {
 // Waits until the browser has listed all its network candidates, or ms milliseconds pass
 function waitForGathering(pc, ms) {
     return new Promise(function (resolve) {
+        // gathering may already be finished by the time we get here; if so, the
+        // "complete" event has already fired and would never reach the listener below
+        if (pc.iceGatheringState === "complete") {
+            resolve();
+            return;
+        }
         const timer = setTimeout(resolve, ms);     // give up after ms milliseconds
         pc.addEventListener("icegatheringstatechange", function () {
             if (pc.iceGatheringState === "complete") {
@@ -594,7 +600,9 @@ async function readAudio() {
 // ── Entry point ──────────────────────────────────────────────────────────
 
 // Reads every signal. The quick ones run first; the slow ones then run at the same
-// time, so the wait is the slowest one (about 1 s) rather than all of them added up.
+// time, so the wait is the slowest one rather than all of them added up. That is
+// usually about 1 s, but up to about 4 s if both ad-blocker files hit their
+// 2 s limit (that check loads them one after the other).
 export async function collectSignals() {
     const ua = navigator.userAgent;
     const browser = readBrowser(ua);
