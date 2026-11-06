@@ -17,7 +17,7 @@ export const CENTRE = 3;
 export const POT = 4;
 export const FADED_PETAL = 5;
 
-// ── Trait tables (draft: the final mapping goes in the wiki) ─────────────
+// ── Trait tables (draft: documented in the wiki page footprintz-trait-mapping) ──
 
 // OS -> growth rule. height: share of the free rows; sway: chance of leaning each step;
 // fork: chance of a new branch each step; leaf: chance of a leaf each step
