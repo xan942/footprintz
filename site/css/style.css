@@ -168,6 +168,10 @@ h3 {
   color: #e0af68;
 }
 
+.tag-pending {
+  color: #828bb8;        /* dim: a placeholder, not a finding; 5.16:1 on the page (WCAG AA needs 4.5) */
+}
+
 .clue,
 .note {
   color: #a9b1d6;

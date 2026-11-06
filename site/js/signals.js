@@ -7,8 +7,9 @@
 // Every signal comes back in the same shape:
 //   { value, state, clue }
 //   value: what the browser reported (null when hidden)
-//   state: "visible" | "hidden" | "spoofed"
-//   clue:  one sentence explaining a hidden or spoofed state (null when visible)
+//   state: "visible" | "hidden" | "spoofed" | "pending"
+//   clue:  one sentence explaining a hidden, spoofed or pending state (null when visible)
+//   "pending" marks a placeholder line whose reader isn't built yet (only the IP line).
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -106,8 +107,15 @@ function readBrowser(ua) {
         name = "Firefox";
     } else if (/Chrome\/|CriOS\//.test(ua)) {       // also Chromium; CriOS: Chrome on iOS
         name = "Chrome";
-    } else if (/Safari\//.test(ua)) {    // also Epiphany (both WebKit)
-        name = "Safari";
+    } else if (/Safari\//.test(ua)) {
+        // Safari exists only on Apple systems. Elsewhere a "Safari/" UA is another
+        // WebKit browser, such as GNOME Web (Epiphany) on Linux.
+        const os = osFromString(ua);
+        if (os === "macOS" || os === "iOS") {
+            name = "Safari";
+        } else {
+            name = "WebKit (e.g. GNOME Web)";
+        }
     }
 
     if (name === null) {
@@ -159,6 +167,13 @@ function readScreen(resistFingerprinting) {
     if (resistFingerprinting || (screen.width === window.innerWidth && screen.height === window.innerHeight)) {
         return signal(value, "spoofed", "The screen size matches the browser window exactly.");
     }
+    // Brave reports a common screen size instead of the real one (checked 2026-11-06 on
+    // a test laptop: Brave said 1280x800, then 1440x900 at 90% zoom; Chromium said 1896x1185).
+    // As with LibreWolf, seed.js then hashes "spoofed" instead of the size, so zooming
+    // doesn't change Brave's plant.
+    if (isBrave()) {
+        return signal(value, "spoofed", "Brave reports a common screen size, not yours.");
+    }
     return signal(value, "visible", null);
 }
 
@@ -203,7 +218,16 @@ function gpuGroup(renderer) {
     return null;                                  // generic or spoofed, e.g. resistFingerprinting's "Mozilla"
 }
 
-function readGpu() {
+function readGpu(ua, resistFingerprinting) {
+    // LibreWolf asks the visitor before allowing WebGL (seen 2026-11-06: "Blocked ... from
+    // creating WebGL context but prompting the user"), so we don't even ask for it there.
+    // Same reason the canvas check is skipped. Under resistFingerprinting the renderer
+    // would only say "Mozilla" anyway, which is hidden too, so the genome doesn't change.
+    if (resistFingerprinting) {
+        return signal(null, "hidden",
+            "This browser looks like one that asks before allowing WebGL, so we skip it to avoid the prompt.");
+    }
+
     const canvas = document.createElement("canvas"); // never added to the page
     let gl = null;
     try {
@@ -236,6 +260,15 @@ function readGpu() {
     const group = gpuGroup(renderer);
     if (group === null) {
         return signal(null, "hidden", "The browser reports only \"" + renderer + "\".");
+    }
+
+    // WebKit browsers report every GPU as "Apple GPU" on purpose, to hide the real one.
+    // On a Mac, iPhone or iPad that can be true, but on any other system it can't be.
+    // The value is kept as reported, so the genome and the art follow what the browser says.
+    const os = osFromString(ua);
+    if (group === "Apple" && os !== "macOS" && os !== "iOS") {
+        return signal({ group: group, renderer: renderer }, "spoofed",
+            "WebKit browsers report every GPU as an Apple GPU, which can't be right on " + os + ".");
     }
     return signal({ group: group, renderer: renderer }, "visible", null);
 }
@@ -302,6 +335,13 @@ async function readAdBlocker() {
 
     const bait = await canLoadScript("bait/adasync.js", 2000);
     if (bait === "loaded") {
+        // Brave Shields (Standard mode) blocks only third-party ads, so it lets our
+        // same-site bait through. "None detected" would be wrong for a Brave user,
+        // so the line reads hidden instead (and the uBlock fix isn't suggested).
+        // Shields in Aggressive mode does block the bait, and lands in "failed" below.
+        if (isBrave()) {
+            return signal(null, "hidden", "Brave Shields blocks third-party ads, which a same-site test can't see.");
+        }
         return signal(false, "visible", null);
     } else if (bait === "failed") {
         return signal(true, "visible", null);
@@ -518,8 +558,10 @@ function readColour(resistFingerprinting) {
     return signal(value, "visible", null);
 }
 
-// Touchscreen or mouse. any-pointer checks every input device, not only the main one,
+// Touch or mouse. any-pointer checks every input device, not only the main one,
 // so a laptop with a touchscreen reports both.
+// maxTouchPoints alone doesn't prove a touchscreen: on Linux, browsers also count a
+// precision touchpad's fingers (test laptop: touchpad only, yet Chromium reports 10).
 function readPointer(resistFingerprinting) {
     let touchPoints = navigator.maxTouchPoints;      // how many fingers the screen tracks at once
     if (typeof touchPoints !== "number") {
@@ -597,6 +639,18 @@ async function readAudio() {
     return signal(short, "visible", null);
 }
 
+// ── Public IP address ────────────────────────────────────────────────────
+
+// PLACEHOLDER until Phase 4. A browser can't read its own public IP; only the network
+// side sees it. Phase 4 adds a CloudFront Function that answers /ip on this site with
+// the visitor's address (event.viewer.ip). This reader will then fetch("/ip"), become
+// async and move into the slow list below. Nothing is fetched yet.
+// The IP stays out of the genome (seed.js): it changes with the network, so it would
+// change the flower every time the visitor switched Wi-Fi.
+function readIp() {
+    return signal(null, "pending", "Shown once the site is live.");
+}
+
 // ── Entry point ──────────────────────────────────────────────────────────
 
 // Reads every signal. The quick ones run first; the slow ones then run at the same
@@ -614,13 +668,14 @@ export async function collectSignals() {
                                     readSpeechVoices(), readAudio()]);
 
     return {
+        ip: readIp(),
         os: readOs(ua),
         browser: browser,
         timezone: timezone,
         languages: readLanguages(),
         screen: readScreen(rfp),
         cores: readCores(rfp),
-        gpu: readGpu(),
+        gpu: readGpu(ua, rfp),
         appearance: readAppearance(rfp),
         privacySignals: readPrivacySignals(),
         adBlocker: slow[0],

@@ -127,25 +127,50 @@ function colourText(value) {
     return text;
 }
 
-// "mouse or trackpad", "touchscreen (5 touch points)", or both
+// e.g. "mouse or trackpad", "mouse or trackpad and 5 touch points reported",
+// "mouse or trackpad, touch input and 10 touch points reported".
+// Touch items end in "reported": they're the browser's claim, not proof of a touchscreen.
+// Chromium claims touch input and Linux browsers count touchpad fingers even on a
+// touchpad-only laptop (see readPointer in signals.js).
 function pointerText(value) {
     const parts = [];
     if (value.fine) {
         parts.push("mouse or trackpad");
     }
-    if (value.touchPoints > 0 || value.coarse) {
-        parts.push("touchscreen (" + value.touchPoints + " touch points)");
+    if (value.coarse) {
+        parts.push("touch input");
     }
+    if (value.touchPoints > 0) {
+        parts.push(value.touchPoints + " touch points");
+    }
+
     if (parts.length === 0) {
         return "no pointer reported";
     }
-    return parts.join(" and ");
+
+    // joins as "a", "a and b", or "a, b and c"
+    let text = parts[0];
+    for (let i = 1; i < parts.length; i++) {
+        if (i === parts.length - 1) {
+            text += " and " + parts[i];          // the last item gets "and"
+        } else {
+            text += ", " + parts[i];             // the ones before it get a comma
+        }
+    }
+
+    if (value.coarse || value.touchPoints > 0) {
+        text += " reported";                     // once, at the end, only when touch is claimed
+    }
+    return text;
 }
 
-// The fixed list of 16 lines, in page order. Lines are grouped by observer, so a new
+// The fixed list of 17 lines, in page order. Lines are grouped by observer, so a new
 // line goes inside its group, not at the end.
 export function buildLines(signals) {
     return [
+        // every server you connect to sees this one, so it leads the "Any site" group
+        line("ip", "IP address", "Any site", signals.ip,
+            signals.ip.value, "your network and rough location"),
         osBrowserLine(signals.os, signals.browser),
         line("timezone", "Timezone", "Any site", signals.timezone,
             signals.timezone.value, "roughly where you are"),
@@ -178,6 +203,18 @@ export function buildLines(signals) {
         line("webrtc", "WebRTC local address", "Attackers and bots", signals.webrtc,
             webRtcText(signals.webrtc.value), "your local network address")
     ];
+}
+
+// The bloom's total: every line except placeholders. A pending line isn't really
+// hidden, so counting it would shrink every visitor's bloom for no reason.
+export function countReal(lines) {
+    let count = 0;
+    for (const item of lines) {
+        if (item.state !== "pending") {
+            count += 1;
+        }
+    }
+    return count;
 }
 
 // The bloom's input: visible lines, leaving out any a previewed fix would hide
@@ -304,6 +341,8 @@ function lineRow(item) {
 
     if (item.state === "hidden") {
         row.appendChild(element("span", "tag-hidden", "hidden"));
+    } else if (item.state === "pending") {
+        row.appendChild(element("span", "tag-pending", "coming soon"));   // placeholder line
     } else {
         row.appendChild(document.createTextNode(String(item.text)));
         if (item.state === "spoofed") {

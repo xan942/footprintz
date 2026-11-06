@@ -7,7 +7,7 @@ import { genomeSeed, growthSeed } from "./seed.js";
 import { makeTraits, growPlant } from "./art.js";
 import { createAsciiView } from "./ascii.js";
 import { createPixelView } from "./pixel.js";
-import { renderReport, buildLines } from "./report.js";
+import { renderReport, buildLines, countReal } from "./report.js";
 import { startTreadmill } from "./treadmill.js";
 
 const TICK_MS = 30;          // time between animation steps
@@ -119,7 +119,7 @@ button.addEventListener("click", async function () {
         const genome = await genomeSeed(signals);
         const traits = makeTraits(signals, genome);
         reducedMotion = signals.appearance.value.reducedMotion;
-        totalLines = buildLines(signals).length; // the bloom uses the share of lines visible, not the count
+        totalLines = countReal(buildLines(signals)); // the bloom uses the share of lines visible; placeholders don't count
 
         // a preview toggle regrows the same plant type at the new size
         const visibleLines = renderReport(reportBox, summaryBox, signals, function (previewCount) {

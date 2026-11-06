@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- footprintz favicon: a small pixel flower in the site's colours, one rect per pixel block -->
+  <!-- petals (pink) around a gold centre -->
+  <rect x="7" y="1" width="2" height="2" fill="#f7768e"/>
+  <rect x="4" y="3" width="2" height="2" fill="#f7768e"/>
+  <rect x="10" y="3" width="2" height="2" fill="#f7768e"/>
+  <rect x="7" y="5" width="2" height="2" fill="#f7768e"/>
+  <rect x="7" y="3" width="2" height="2" fill="#e0af68"/>
+  <!-- stem and two leaves (green) -->
+  <rect x="7" y="7" width="2" height="6" fill="#73a857"/>
+  <rect x="4" y="8" width="3" height="2" fill="#73a857"/>
+  <rect x="9" y="10" width="3" height="2" fill="#73a857"/>
+  <!-- pot (lavender, like the pixel view's pot) -->
+  <rect x="4" y="13" width="8" height="1" fill="#a9b1d6"/>
+  <rect x="5" y="14" width="6" height="1" fill="#a9b1d6"/>
+</svg>
