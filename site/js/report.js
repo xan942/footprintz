@@ -109,7 +109,7 @@ function voicesText(value) {
         return "";
     }
     const examples = value.slice(0, 3);          // the first three names are enough to show the idea
-    let text = value.length + " installed, e.g. " + examples.join(", ");
+    let text = value.length.toLocaleString() + " installed, e.g. " + examples.join(", ");
     if (value.length > 3) {
         text += ", ...";
     }
