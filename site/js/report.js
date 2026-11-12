@@ -272,6 +272,11 @@ const FIXES = {
         how: "It blocks requests to ad and tracking servers, which cuts down what those companies can collect about you across sites.",
         hides: []
     },
+    vpn: {
+        title: "Use a VPN or Tor Browser",
+        how: "Every site you visit sees the address your traffic comes from. Behind a VPN or Tor, that's the VPN's or Tor's address rather than your home or phone network, so it no longer points to your provider or rough location.",
+        hides: []
+    },
     webrtc: {
         title: "Stop WebRTC sharing your local address",
         how: "In uBlock Origin's settings, tick \"Prevent WebRTC from leaking local IP addresses\".",
@@ -281,6 +286,7 @@ const FIXES = {
 
 // Which fix answers which line. Lines not listed here have their fix chosen below.
 const FIX_FOR_LINE = {
+    ip: "vpn",
     osBrowser: "torBrowser",
     languages: "torBrowser",
     speechVoices: "torBrowser",

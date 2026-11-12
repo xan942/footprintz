@@ -1,7 +1,8 @@
 // signals.js — collects the browser signals that feed the genome (seed.js)
 // and the "What they can see" report (report.js).
 // Runs only when the visitor clicks Generate. Nothing is sent anywhere: the only
-// requests are the ad-blocker check's two empty files, from our own site.
+// requests go to our own site (the ad-blocker check's two empty files, and /ip,
+// which answers with the visitor's address) and carry no results.
 // No reader here may trigger a permission prompt.
 //
 // Every signal comes back in the same shape:
@@ -9,7 +10,8 @@
 //   value: what the browser reported (null when hidden)
 //   state: "visible" | "hidden" | "spoofed" | "pending"
 //   clue:  one sentence explaining a hidden, spoofed or pending state (null when visible)
-//   "pending" marks a placeholder line whose reader isn't built yet (only the IP line).
+//   "pending" marks a line with nothing to show yet: only the IP line, when /ip
+//   doesn't answer (the local dev server, or a network failure).
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -641,14 +643,32 @@ async function readAudio() {
 
 // ── Public IP address ────────────────────────────────────────────────────
 
-// PLACEHOLDER until Phase 4. A browser can't read its own public IP; only the network
-// side sees it. Phase 4 adds a CloudFront Function that answers /ip on this site with
-// the visitor's address (event.viewer.ip). This reader will then fetch("/ip"), become
-// async and move into the slow list below. Nothing is fetched yet.
+// A browser can't read its own public IP; only the network side sees it. A CloudFront
+// Function (infra/functions/ip.js) answers /ip on this site with the visitor's address
+// (event.viewer.ip) as plain text, uncached; nothing logs or stores it.
+// Anything other than an address (the local dev server's 404, a timeout, a network
+// error) leaves the line pending, so it stays out of the bloom total rather than
+// counting as hidden: a site always sees your IP, so failing to fetch it hides nothing.
 // The IP stays out of the genome (seed.js): it changes with the network, so it would
 // change the flower every time the visitor switched Wi-Fi.
-function readIp() {
-    return signal(null, "pending", "Shown once the site is live.");
+async function readIp() {
+    const controller = new AbortController();
+    const timer = setTimeout(function () {
+        controller.abort();                                     // give up after 2 s
+    }, 2000);
+    try {
+        const response = await fetch("/ip", { cache: "no-store", signal: controller.signal });
+        const text = (await response.text()).trim();
+        // an IPv4 or IPv6 address only: digits, hex letters, dots and colons
+        if (response.ok && /^[0-9a-fA-F.:]{2,45}$/.test(text)) {
+            return signal(text, "visible", null);
+        }
+        return signal(null, "pending", "Shown on the live site.");
+    } catch (error) {
+        return signal(null, "pending", "Couldn't reach this site's /ip check.");
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 // ── Entry point ──────────────────────────────────────────────────────────
@@ -663,12 +683,12 @@ export async function collectSignals() {
     const timezone = readTimezone();
     const rfp = looksLikeResistFingerprinting(browser.value, timezone.value);
 
-    // Promise.all waits for all five, and its results keep this order
+    // Promise.all waits for all six, and its results keep this order
     const slow = await Promise.all([readAdBlocker(), readCanvas(rfp), readWebRtc(),
-                                    readSpeechVoices(), readAudio()]);
+                                    readSpeechVoices(), readAudio(), readIp()]);
 
     return {
-        ip: readIp(),
+        ip: slow[5],
         os: readOs(ua),
         browser: browser,
         timezone: timezone,
