@@ -53,6 +53,18 @@ resource "aws_cloudfront_function" "ip" {
   code    = file("${path.module}/functions/ip.js")
 }
 
+# Viewer response on the default behaviour of the site distribution: CSP, HSTS and the
+# other security headers. Not attached to /ip or to the ipv4 distribution: every
+# response there comes from ip.js, and CloudFront skips viewer-response functions for
+# function-generated responses, so attaching it would do nothing.
+resource "aws_cloudfront_function" "security_headers" {
+  name    = "footprintz-security-headers"
+  runtime = "cloudfront-js-2.0"
+  comment = "Add CSP, HSTS and other security headers"
+  publish = true
+  code    = file("${path.module}/functions/security-headers.js")
+}
+
 # ── Managed cache policies ───────────────────────────────────────────────
 
 data "aws_cloudfront_cache_policy" "caching_optimized" {
@@ -99,6 +111,11 @@ resource "aws_cloudfront_distribution" "site" {
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.www_redirect.arn
+    }
+
+    function_association {
+      event_type   = "viewer-response"
+      function_arn = aws_cloudfront_function.security_headers.arn
     }
   }
 
