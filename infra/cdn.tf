@@ -74,7 +74,7 @@ resource "aws_cloudfront_distribution" "site" {
   default_root_object = "index.html" # only for "/"; keep the site flat (privacy.html)
   http_version        = "http2and3"
   is_ipv6_enabled     = true
-  price_class         = "PriceClass_100" # North America + Europe edges
+  price_class         = "PriceClass_All" # the Free flat-rate plan sets this; all edges, no per-region pricing
 
   origin {
     origin_id                = "s3-site"
