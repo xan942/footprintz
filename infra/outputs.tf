@@ -12,6 +12,11 @@ output "distribution_id" {
   value       = aws_cloudfront_distribution.site.id
 }
 
+output "ipv4_distribution_id" {
+  description = "CloudFront distribution ID of the IPv4-only /ip endpoint"
+  value       = aws_cloudfront_distribution.ipv4.id
+}
+
 output "distribution_domain" {
   description = "CloudFront domain the DNS records point at"
   value       = aws_cloudfront_distribution.site.domain_name

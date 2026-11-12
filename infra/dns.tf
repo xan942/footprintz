@@ -37,6 +37,17 @@ resource "cloudflare_dns_record" "apex" {
   comment = "Site → CloudFront (OpenTofu)"
 }
 
+# ipv4 → the IPv4-only distribution (no AAAA behind it), used by the IPv4 report line.
+resource "cloudflare_dns_record" "ipv4" {
+  zone_id = data.cloudflare_zone.site.id
+  name    = "ipv4.${var.domain}"
+  type    = "CNAME"
+  content = aws_cloudfront_distribution.ipv4.domain_name
+  ttl     = 1
+  proxied = false
+  comment = "IPv4-only /ip endpoint → CloudFront (OpenTofu)"
+}
+
 # www → CloudFront; the www-redirect function sends it on to the apex.
 resource "cloudflare_dns_record" "www" {
   zone_id = data.cloudflare_zone.site.id
