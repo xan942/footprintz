@@ -18,6 +18,15 @@ function line(id, label, observer, reading, text, phrase) {
     };
 }
 
+// An IP line. With no address it reads "none": still visible (any site learns that
+// too), but it adds nothing to the closing sentence and needs no fix.
+function ipLine(id, label, reading, phrase) {
+    if (reading.state === "visible" && reading.value === null) {
+        return line(id, label, "Any site", reading, "none", null);
+    }
+    return line(id, label, "Any site", reading, reading.value, phrase);
+}
+
 // OS and browser share a line, so the line takes its state from the pair
 function osBrowserLine(os, browser) {
     let reading = os;
@@ -164,13 +173,13 @@ function pointerText(value) {
     return text;
 }
 
-// The fixed list of 17 lines, in page order. Lines are grouped by observer, so a new
+// The fixed list of 18 lines, in page order. Lines are grouped by observer, so a new
 // line goes inside its group, not at the end.
 export function buildLines(signals) {
     return [
-        // every server you connect to sees this one, so it leads the "Any site" group
-        line("ip", "IP address", "Any site", signals.ip,
-            signals.ip.value, "your network and rough location"),
+        // every server you connect to sees these, so they lead the "Any site" group
+        ipLine("ipv4", "IPv4 address", signals.ipv4, "your network and rough location"),
+        ipLine("ipv6", "IPv6 address", signals.ipv6, "an address block that belongs to your network alone"),
         osBrowserLine(signals.os, signals.browser),
         line("timezone", "Timezone", "Any site", signals.timezone,
             signals.timezone.value, "roughly where you are"),
@@ -232,8 +241,8 @@ export function countVisible(lines, previewHidden) {
 function closingText(lines) {
     const phrases = [];
     for (const item of lines) {
-        if (item.state === "visible") {
-            phrases.push(item.phrase);
+        if (item.state === "visible" && item.phrase !== null) {
+            phrases.push(item.phrase);   // an IP line reading "none" has no phrase
         }
     }
     if (phrases.length === 0) {
@@ -286,7 +295,8 @@ const FIXES = {
 
 // Which fix answers which line. Lines not listed here have their fix chosen below.
 const FIX_FOR_LINE = {
-    ip: "vpn",
+    ipv4: "vpn",
+    ipv6: "vpn",
     osBrowser: "torBrowser",
     languages: "torBrowser",
     speechVoices: "torBrowser",
@@ -314,7 +324,7 @@ export function buildFixes(signals, lines) {
     }
 
     for (const item of lines) {
-        if (item.state === "visible" && FIX_FOR_LINE[item.id] !== undefined) {
+        if (item.state === "visible" && item.phrase !== null && FIX_FOR_LINE[item.id] !== undefined) {
             add(FIX_FOR_LINE[item.id]);
         }
     }

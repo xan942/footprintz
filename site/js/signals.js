@@ -1,8 +1,9 @@
 // signals.js — collects the browser signals that feed the genome (seed.js)
 // and the "What they can see" report (report.js).
 // Runs only when the visitor clicks Generate. Nothing is sent anywhere: the only
-// requests go to our own site (the ad-blocker check's two empty files, and /ip,
-// which answers with the visitor's address) and carry no results.
+// requests go to our own site (the ad-blocker check's two empty files, and /ip on
+// footprintz.fyi and ipv4.footprintz.fyi, which answer with the visitor's address)
+// and carry no results.
 // No reader here may trigger a permission prompt.
 //
 // Every signal comes back in the same shape:
@@ -10,8 +11,8 @@
 //   value: what the browser reported (null when hidden)
 //   state: "visible" | "hidden" | "spoofed" | "pending"
 //   clue:  one sentence explaining a hidden, spoofed or pending state (null when visible)
-//   "pending" marks a line with nothing to show yet: only the IP line, when /ip
-//   doesn't answer (the local dev server, or a network failure).
+//   "pending" marks a line with nothing to show yet: only the IP lines, when /ip
+//   can't be checked (the local dev server, or a network failure).
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -644,31 +645,64 @@ async function readAudio() {
 // ── Public IP address ────────────────────────────────────────────────────
 
 // A browser can't read its own public IP; only the network side sees it. A CloudFront
-// Function (infra/functions/ip.js) answers /ip on this site with the visitor's address
-// (event.viewer.ip) as plain text, uncached; nothing logs or stores it.
-// Anything other than an address (the local dev server's 404, a timeout, a network
-// error) leaves the line pending, so it stays out of the bloom total rather than
-// counting as hidden: a site always sees your IP, so failing to fetch it hides nothing.
+// Function (infra/functions/ip.js) answers /ip with the visitor's address as plain
+// text, uncached; nothing logs or stores it. It runs in two places:
+//   footprintz.fyi/ip        dual-stack: answers with the IPv6 address when the
+//                            browser connected over IPv6, otherwise the IPv4 one
+//   ipv4.footprintz.fyi/ip   IPv6 turned off, so it can only answer with IPv4
+// A missing address reads "none" (visible: any site learns that too). The lines stay
+// pending only when the check can't run: the local dev server, or an /ip failure.
 // The IP stays out of the genome (seed.js): it changes with the network, so it would
 // change the flower every time the visitor switched Wi-Fi.
-async function readIp() {
+
+const LIVE_HOST = "footprintz.fyi";
+
+// Fetches url and returns the address it answers with, or null (error, timeout,
+// a 404 from the dev server, or anything that isn't an IPv4/IPv6 address)
+async function fetchAddress(url) {
     const controller = new AbortController();
     const timer = setTimeout(function () {
         controller.abort();                                     // give up after 2 s
     }, 2000);
     try {
-        const response = await fetch("/ip", { cache: "no-store", signal: controller.signal });
+        const response = await fetch(url, { cache: "no-store", signal: controller.signal });
         const text = (await response.text()).trim();
-        // an IPv4 or IPv6 address only: digits, hex letters, dots and colons
+        // digits, hex letters, dots and colons only
         if (response.ok && /^[0-9a-fA-F.:]{2,45}$/.test(text)) {
-            return signal(text, "visible", null);
+            return text;
         }
-        return signal(null, "pending", "Shown on the live site.");
+        return null;
     } catch (error) {
-        return signal(null, "pending", "Couldn't reach this site's /ip check.");
+        return null;
     } finally {
         clearTimeout(timer);
     }
+}
+
+// IPv6: the site's own /ip answers over whichever IP version the browser chose.
+// Browsers prefer IPv6 when the network has it, so an IPv4 answer means it has none.
+async function readIpv6() {
+    const address = await fetchAddress("/ip");
+    if (address === null) {
+        return signal(null, "pending", "Shown on the live site.");
+    }
+    if (address.includes(":")) {
+        return signal(address, "visible", null);
+    }
+    return signal(null, "visible", "Your connection used IPv4, so your network may not have IPv6.");
+}
+
+// IPv4: ask the IPv4-only host. On an IPv6-only network the connection fails, which
+// can't be told apart from a network error, so on the live site a failure reads "none".
+async function readIpv4() {
+    if (location.hostname !== LIVE_HOST) {
+        return signal(null, "pending", "Shown on the live site.");  // dev server: no ipv4 host
+    }
+    const address = await fetchAddress("https://ipv4." + LIVE_HOST + "/ip");
+    if (address === null) {
+        return signal(null, "visible", "Couldn't connect over IPv4, so your network may be IPv6-only.");
+    }
+    return signal(address, "visible", null);
 }
 
 // ── Entry point ──────────────────────────────────────────────────────────
@@ -683,12 +717,13 @@ export async function collectSignals() {
     const timezone = readTimezone();
     const rfp = looksLikeResistFingerprinting(browser.value, timezone.value);
 
-    // Promise.all waits for all six, and its results keep this order
+    // Promise.all waits for all seven, and its results keep this order
     const slow = await Promise.all([readAdBlocker(), readCanvas(rfp), readWebRtc(),
-                                    readSpeechVoices(), readAudio(), readIp()]);
+                                    readSpeechVoices(), readAudio(), readIpv4(), readIpv6()]);
 
     return {
-        ip: slow[5],
+        ipv4: slow[5],
+        ipv6: slow[6],
         os: readOs(ua),
         browser: browser,
         timezone: timezone,

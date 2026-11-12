@@ -24,7 +24,7 @@
     <h2>When you click Generate</h2>
     <p>Nothing else is read until you click. Then the page reads these from your browser, and uses them to grow your flower and fill in the report:</p>
     <ul>
-      <li>Your public IP address, which this site echoes back to your browser so the report can show it (it is never stored, and doesn't affect your flower)</li>
+      <li>Your public IPv4 and IPv6 addresses, which this site echoes back to your browser so the report can show them (they are never stored, and don't affect your flower)</li>
       <li>Operating system and browser name</li>
       <li>Timezone</li>
       <li>Date and number formats (12- or 24-hour clock, decimal separator)</li>
@@ -45,10 +45,10 @@
     <p>Your flower is also shaped by a random number made in your browser for each growth, so no two are the same.</p>
 
     <h2>What leaves your browser</h2>
-    <p>Nothing you see in the report. The ad-blocker check asks this site for two empty files, and the IP line asks this site for your address; none of these requests carry any results. The WebRTC check uses no outside server, and the page loads nothing from any other site.</p>
+    <p>Nothing you see in the report. The ad-blocker check asks this site for two empty files, and the IP lines ask this site for your address twice, once at footprintz.fyi and once at ipv4.footprintz.fyi, which only answers over IPv4; none of these requests carry any results. The WebRTC check uses no outside server, and the page loads nothing from any other site.</p>
 
     <h2>Hosting</h2>
-    <p>Like every website, this one can't reach you without your IP address. The site is hosted on Amazon CloudFront, which handles that address to deliver pages and to limit abusive traffic. The site has access logging turned off, so it keeps no record of your visit or your IP address. The IP address line comes from a small function at the edge that reads your address from the connection and sends it straight back; it is not written anywhere.</p>
+    <p>Like every website, this one can't reach you without your IP address. The site is hosted on Amazon CloudFront, which handles that address to deliver pages and to limit abusive traffic. The site has access logging turned off, so it keeps no record of your visit or your IP address. The IP address lines come from a small function at the edge that reads your address from the connection and sends it straight back; it is not written anywhere.</p>
 
     <h2>Changes</h2>
     <p>This page describes what the site does today, and it will be updated before that changes.</p>
