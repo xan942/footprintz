@@ -1,0 +1,47 @@
+# Deploys site/ to S3 and clears the CloudFront cache (Phase 5 Step 5).              # what this file does
+# Signs in to AWS with a short-lived GitHub token (OIDC); no AWS keys are stored.    # how it signs in
+# Bucket, distribution and role come from repository variables, not from this file,  # where the AWS names come from
+# so nothing account-specific is published if the repo goes public.                 # why they're not written here
+
+name: Deploy site                                                                    # the name shown in GitHub's Actions tab
+
+on:                                                                                  # when this workflow runs
+  push:                                                                              # on a push...
+    branches: [main]                                                                 # ...to the main branch
+    paths: ["site/**"]                                                               # ...that changes something under site/
+  workflow_dispatch:                                                                 # also allow a manual "Run workflow" button
+
+permissions:                                                                         # what the workflow's GitHub token may do
+  id-token: write                                                                    # request the signed token that AWS checks
+  contents: read                                                                     # read the repository's files, nothing more
+
+concurrency:                                                                         # stop two deploys from running at once
+  group: deploy-site                                                                 # all runs share this queue
+  cancel-in-progress: false                                                          # a running deploy finishes; the next one waits
+
+jobs:                                                                                # the work to do
+  deploy:                                                                            # one job, named "deploy"
+    runs-on: ubuntu-24.04                                                            # a fresh GitHub-hosted Ubuntu machine (has the AWS CLI)
+    timeout-minutes: 10                                                              # give up if it takes more than 10 minutes
+    steps:                                                                           # the steps, in order
+      - name: Check out the repository                                               # step 1: get the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1      # GitHub's checkout action, pinned to an exact commit
+        with:                                                                        # its settings
+          persist-credentials: false                                                 # don't leave a GitHub token on the machine afterwards
+
+      - name: Get temporary AWS credentials                                          # step 2: sign in to AWS
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0 # AWS's sign-in action, pinned to an exact commit
+        with:                                                                        # its settings
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}                            # the deploy role (from a repository variable)
+          aws-region: us-east-2                                                      # the region the bucket lives in
+          mask-aws-account-id: true                                                  # hide the AWS account number in the logs
+
+      - name: Upload site/ to S3                                                     # step 3: copy the site to the bucket
+        env:                                                                         # values handed to the command below
+          SITE_BUCKET: ${{ vars.SITE_BUCKET }}                                       # the bucket name (from a repository variable)
+        run: aws s3 sync site/ "s3://$SITE_BUCKET" --delete --only-show-errors       # upload changes, delete removed files, print only errors
+
+      - name: Clear the CloudFront cache                                             # step 4: make visitors get the new files
+        env:                                                                         # values handed to the command below
+          DISTRIBUTION_ID: ${{ vars.DISTRIBUTION_ID }}                               # the distribution ID (from a repository variable)
+        run: aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" --query Invalidation.Status --output text # clear every cached file; print only "InProgress"

@@ -17,3 +17,9 @@ variable "domain" {
   type    = string
   default = "footprintz.fyi"
 }
+
+# The GitHub repository allowed to deploy, as owner/name. Used by deploy.tf.          # what this setting is and where it's used
+variable "github_repo" {        # declare a setting named github_repo
+  type    = string              # it holds text
+  default = "xan942/footprintz" # the value: this project's repository
+}                               # end of the setting

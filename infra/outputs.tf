@@ -21,3 +21,8 @@ output "distribution_domain" {
   description = "CloudFront domain the DNS records point at"
   value       = aws_cloudfront_distribution.site.domain_name
 }
+
+output "deploy_role_arn" {                                                                        # print this value after every apply
+  description = "Role GitHub Actions assumes to deploy site/ (repo variable AWS_DEPLOY_ROLE_ARN)" # what it is and where it goes
+  value       = aws_iam_role.deploy.arn                                                           # the deploy role's full AWS name (ARN)
+}                                                                                                 # end of the output
