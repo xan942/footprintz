@@ -1,7 +1,7 @@
 # Deploys site/ to S3 and clears the CloudFront cache (Phase 5 Step 5).              # what this file does
 # Signs in to AWS with a short-lived GitHub token (OIDC); no AWS keys are stored.    # how it signs in
-# Bucket, distribution and role come from repository variables, not from this file,  # where the AWS names come from
-# so nothing account-specific is published if the repo goes public.                 # why they're not written here
+# Bucket, distribution and role come from repository secrets, not from this file,    # where the AWS names come from
+# so they never appear in the code or the public run logs (GitHub shows them as ***). # why they're secrets
 
 name: Deploy site                                                                    # the name shown in GitHub's Actions tab
 
@@ -32,16 +32,16 @@ jobs:                                                                           
       - name: Get temporary AWS credentials                                          # step 2: sign in to AWS
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0 # AWS's sign-in action, pinned to an exact commit
         with:                                                                        # its settings
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}                            # the deploy role (from a repository variable)
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}                         # the deploy role (from a repository secret, masked in logs)
           aws-region: us-east-2                                                      # the region the bucket lives in
           mask-aws-account-id: true                                                  # hide the AWS account number in the logs
 
       - name: Upload site/ to S3                                                     # step 3: copy the site to the bucket
         env:                                                                         # values handed to the command below
-          SITE_BUCKET: ${{ vars.SITE_BUCKET }}                                       # the bucket name (from a repository variable)
+          SITE_BUCKET: ${{ secrets.SITE_BUCKET }}                                    # the bucket name (from a repository secret, masked in logs)
         run: aws s3 sync site/ "s3://$SITE_BUCKET" --delete --only-show-errors       # upload changes, delete removed files, print only errors
 
       - name: Clear the CloudFront cache                                             # step 4: make visitors get the new files
         env:                                                                         # values handed to the command below
-          DISTRIBUTION_ID: ${{ vars.DISTRIBUTION_ID }}                               # the distribution ID (from a repository variable)
+          DISTRIBUTION_ID: ${{ secrets.DISTRIBUTION_ID }}                            # the distribution ID (from a repository secret, masked in logs)
         run: aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" --query Invalidation.Status --output text # clear every cached file; print only "InProgress"
