@@ -26,6 +26,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+    archive = {                     # zips the API binary for Lambda (api.tf), so `zip` needn't be installed
+      source  = "hashicorp/archive" # HashiCorp's archive provider
+      version = "~> 2.8"            # any 2.x from 2.8 on (2.8.1 on 2026-11-21)
+    }
   }
 
   # State and saved plans are encrypted at rest. The state holds every resource ID
@@ -52,7 +56,7 @@ terraform {
   }
 }
 
-# Default AWS provider: everything regional (S3 now; EC2 and DynamoDB later).
+# Default AWS provider: everything regional (S3, DynamoDB and Lambda now; EC2 later).
 provider "aws" {
   region = "us-east-2"
 

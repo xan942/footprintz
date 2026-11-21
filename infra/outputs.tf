@@ -26,3 +26,13 @@ output "deploy_role_arn" {                                                      
   description = "Role GitHub Actions assumes to deploy site/ (repo variable AWS_DEPLOY_ROLE_ARN)" # what it is and where it goes
   value       = aws_iam_role.deploy.arn                                                           # the deploy role's full AWS name (ARN)
 }                                                                                                 # end of the output
+
+output "api_function_url" {                                                         # Phase 5A
+  description = "The API function's own URL (a direct call should get 403; Step 6)" # what it is
+  value       = aws_lambda_function_url.api.function_url                            # e.g. https://….lambda-url.us-east-2.on.aws/
+}                                                                                   # end of the output
+
+output "scores_table" {                                      # Phase 5A
+  description = "DynamoDB table for the Pachinko scoreboard" # what it is
+  value       = aws_dynamodb_table.scores.name               # footprintz-scores
+}                                                            # end of the output

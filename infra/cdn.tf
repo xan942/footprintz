@@ -53,7 +53,7 @@ resource "aws_cloudfront_function" "ip" {
   code    = file("${path.module}/functions/ip.js")
 }
 
-# Viewer response on the default behaviour of the site distribution: CSP, HSTS and the
+# Viewer response on the default and /api/* behaviours of the site distribution: CSP, HSTS and the
 # other security headers. Not attached to /ip or to the ipv4 distribution: every
 # response there comes from ip.js, and CloudFront skips viewer-response functions for
 # function-generated responses, so attaching it would do nothing.
@@ -75,6 +75,12 @@ data "aws_cloudfront_cache_policy" "caching_disabled" {
   name = "Managed-CachingDisabled"
 }
 
+# Forwards the viewer's headers, query string and cookies to the API, but not Host:  # what the policy does
+# a function URL answers only to its own host name, so the viewer's Host would break it. # why Host is left out
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" { # look up the AWS-managed policy
+  name = "Managed-AllViewerExceptHostHeader"                           # by its name
+}                                                                      # end of the lookup
+
 # ── Distribution ─────────────────────────────────────────────────────────
 
 resource "aws_cloudfront_origin_access_control" "site" {
@@ -84,6 +90,14 @@ resource "aws_cloudfront_origin_access_control" "site" {
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
 }
+
+resource "aws_cloudfront_origin_access_control" "api" {                                   # how CloudFront proves itself to the API (Phase 5A)
+  name                              = "footprintz-api"                                    # its name in the console
+  description                       = "CloudFront signs requests to the API function URL" # a note in the console
+  origin_access_control_origin_type = "lambda"                                            # the origin is a Lambda function URL
+  signing_behavior                  = "always"                                            # sign every request
+  signing_protocol                  = "sigv4"                                             # AWS Signature Version 4
+}                                                                                         # end of the access control
 
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
@@ -99,6 +113,19 @@ resource "aws_cloudfront_distribution" "site" {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
   }
+
+  origin {                                                                             # the API (Phase 5A, api.tf)
+    origin_id                = "lambda-api"                                            # name the /api/* behaviour points at
+    domain_name              = split("/", aws_lambda_function_url.api.function_url)[2] # host only: "https://HOST/" split on "/" → [2]
+    origin_access_control_id = aws_cloudfront_origin_access_control.api.id             # sign requests with the API's OAC
+
+    custom_origin_config {                  # a function URL is a plain HTTPS origin, not S3
+      http_port              = 80           # required, never used
+      https_port             = 443          # the URL's port
+      origin_protocol_policy = "https-only" # CloudFront → Lambda only over HTTPS
+      origin_ssl_protocols   = ["TLSv1.2"]  # TLS 1.2 or newer
+    }                                       # end of the origin settings
+  }                                         # end of the API origin
 
   default_cache_behavior {
     target_origin_id       = "s3-site"
@@ -133,6 +160,22 @@ resource "aws_cloudfront_distribution" "site" {
       function_arn = aws_cloudfront_function.ip.arn
     }
   }
+
+  ordered_cache_behavior {                                                                         # /api/* → the Lambda data API (Phase 5A)
+    path_pattern             = "/api/*"                                                            # every path under /api/
+    target_origin_id         = "lambda-api"                                                        # the API origin above
+    viewer_protocol_policy   = "https-only"                                                        # refuse plain HTTP: a redirect would drop a POST body
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]        # all seven: the only set that includes POST
+    cached_methods           = ["GET", "HEAD"]                                                     # required; nothing is cached anyway
+    compress                 = false                                                               # CachingDisabled can't compress; the JSON is tiny
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id                # never cache: scores change
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id # forward everything but Host
+
+    function_association {                                        # add the security headers to API answers too
+      event_type   = "viewer-response"                            # on the way back to the browser
+      function_arn = aws_cloudfront_function.security_headers.arn # same function as the pages (skipped for 4xx/5xx)
+    }                                                             # end of the function
+  }                                                               # end of the /api/* behaviour
 
   # The bucket can't be listed, so a missing file is a 403: serve /404.html as a real 404.
   custom_error_response {
