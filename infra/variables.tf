@@ -26,3 +26,10 @@ variable "github_repo" {                             # declare a setting named g
   type    = string                                   # it holds text
   default = "xan942@216507896/footprintz@1418705982" # the value: this project's repository, with its permanent IDs
 }                                                    # end of the setting
+
+# The Pachinko repository, same immutable-subject form; it deploys only pachinko/ (Pachinko Phase 3). # what this setting is
+# Check with: gh api repos/xan942/pachinko/actions/oidc/customization/sub                            # how to look the IDs up
+variable "pachinko_repo" {                         # declare a setting named pachinko_repo
+  type    = string                                 # it holds text
+  default = "xan942@216507896/pachinko@1458449526" # the value: the game's repository, with its permanent IDs
+}                                                  # end of the setting

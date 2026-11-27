@@ -36,3 +36,8 @@ output "scores_table" {                                      # Phase 5A
   description = "DynamoDB table for the Pachinko scoreboard" # what it is
   value       = aws_dynamodb_table.scores.name               # footprintz-scores
 }                                                            # end of the output
+
+output "pachinko_deploy_role_arn" {                                                          # Pachinko Phase 3
+  description = "Role the pachinko repo's workflow assumes (its secret AWS_DEPLOY_ROLE_ARN)" # what it is and where it goes
+  value       = aws_iam_role.pachinko_deploy.arn                                             # the role's full AWS name (ARN)
+}                                                                                            # end of the output

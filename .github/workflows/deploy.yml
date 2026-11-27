@@ -39,7 +39,7 @@ jobs:                                                                           
       - name: Upload site/ to S3                                                     # step 3: copy the site to the bucket
         env:                                                                         # values handed to the command below
           SITE_BUCKET: ${{ secrets.SITE_BUCKET }}                                    # the bucket name (from a repository secret, masked in logs)
-        run: aws s3 sync site/ "s3://$SITE_BUCKET" --delete --only-show-errors       # upload changes, delete removed files, print only errors
+        run: aws s3 sync site/ "s3://$SITE_BUCKET" --delete --exclude "pachinko/*" --only-show-errors # upload changes, delete removed files except pachinko/ (the pachinko repo deploys it), print only errors
 
       - name: Clear the CloudFront cache                                             # step 4: make visitors get the new files
         env:                                                                         # values handed to the command below

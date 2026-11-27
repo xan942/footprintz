@@ -66,3 +66,63 @@ resource "aws_iam_role_policy" "deploy" {                       # attach the per
   role   = aws_iam_role.deploy.id                               # attach to the deploy role above
   policy = data.aws_iam_policy_document.deploy_permissions.json # the three permissions listed above
 }                                                               # end of the attachment
+
+# ── Pachinko deploy role (Pachinko Phase 3) ──────────────────────────────────────
+# A second role for the pachinko repo's workflow. Separate from the site role, so    # why a second role
+# the game's repo can only touch pachinko/ in the bucket, never the site's files.    # what it limits
+
+data "aws_iam_policy_document" "pachinko_trust" {                  # who may take on the Pachinko deploy role
+  statement {                                                      # one rule
+    actions = ["sts:AssumeRoleWithWebIdentity"]                    # trade a GitHub token for temporary AWS credentials
+    principals {                                                   # who the rule is about
+      type        = "Federated"                                    # an outside sign-in system
+      identifiers = [aws_iam_openid_connect_provider.github.arn]   # the GitHub sign-in source registered above
+    }                                                              # end of "who"
+    condition {                                                    # requirement 1
+      test     = "StringEquals"                                    # exact match
+      variable = "token.actions.githubusercontent.com:aud"         # the token's audience
+      values   = ["sts.amazonaws.com"]                             # must be AWS's sign-in service
+    }                                                              # end of requirement 1
+    condition {                                                    # requirement 2
+      test     = "StringEquals"                                    # exact match, no wildcards
+      variable = "token.actions.githubusercontent.com:sub"         # which repo and branch is asking
+      values   = ["repo:${var.pachinko_repo}:ref:refs/heads/main"] # only the pachinko repo, only main
+    }                                                              # end of requirement 2
+  }                                                                # end of the rule
+}                                                                  # end of the trust rules
+
+data "aws_iam_policy_document" "pachinko_permissions" {  # what the Pachinko role may do
+  statement {                                            # permission 1
+    sid       = "ListPachinkoFolder"                     # a label
+    actions   = ["s3:ListBucket"]                        # see which files are already there (sync needs it)
+    resources = [aws_s3_bucket.site.arn]                 # the site bucket...
+    condition {                                          # ...but only when listing...
+      test     = "StringLike"                            # a pattern match
+      variable = "s3:prefix"                             # the folder being listed
+      values   = ["pachinko/*"]                          # ...inside pachinko/
+    }                                                    # end of the condition
+  }                                                      # end of permission 1
+  statement {                                            # permission 2
+    sid       = "WritePachinkoFiles"                     # a label
+    actions   = ["s3:PutObject", "s3:DeleteObject"]      # upload and delete files
+    resources = ["${aws_s3_bucket.site.arn}/pachinko/*"] # only inside pachinko/
+  }                                                      # end of permission 2
+  statement {                                            # permission 3
+    sid       = "ClearCache"                             # a label
+    actions   = ["cloudfront:CreateInvalidation"]        # drop cached copies (IAM can't limit which paths)
+    resources = [aws_cloudfront_distribution.site.arn]   # only the main site distribution
+  }                                                      # end of permission 3
+}                                                        # end of the permission list
+
+resource "aws_iam_role" "pachinko_deploy" {                                                      # create the Pachinko deploy role
+  name                 = "footprintz-pachinko-deploy"                                            # its name in the AWS console
+  description          = "GitHub Actions on pachinko main: upload pachinko/ and clear the cache" # a note shown in the console
+  assume_role_policy   = data.aws_iam_policy_document.pachinko_trust.json                        # the "who may use it" rules
+  max_session_duration = 3600                                                                    # credentials expire after 1 hour
+}                                                                                                # end of the role
+
+resource "aws_iam_role_policy" "pachinko_deploy" {                # attach the permission list to the role
+  name   = "deploy-pachinko"                                      # a name for the attached permissions
+  role   = aws_iam_role.pachinko_deploy.id                        # attach to the Pachinko role above
+  policy = data.aws_iam_policy_document.pachinko_permissions.json # the three permissions listed above
+}                                                                 # end of the attachment
